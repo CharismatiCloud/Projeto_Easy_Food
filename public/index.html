@@ -1,0 +1,460 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EasyFood - Gestão de Restaurantes</title>
+    <style>
+        :root {
+            --primary: #ff4757;
+            --primary-hover: #ff6b81;
+            --bg: #f1f2f6;
+            --card-bg: #ffffff;
+            --text: #2f3542;
+            --gray: #a4b0be;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg);
+            color: var(--text);
+            margin: 0;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        header h1 {
+            color: var(--primary);
+            margin-bottom: 5px;
+        }
+
+        .card {
+            background: var(--card-bg);
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+            margin-bottom: 20px;
+        }
+
+        h2 {
+            font-size: 1.2rem;
+            margin-top: 0;
+            margin-bottom: 15px;
+            color: #57606f;
+            border-bottom: 2px solid var(--bg);
+            padding-bottom: 8px;
+        }
+
+        .form-group {
+            display: grid;
+            grid-template-columns: 2fr 1fr 1fr auto;
+            gap: 10px;
+        }
+
+        /* Formulário de login: 2 campos + botão */
+        .form-login {
+            grid-template-columns: 2fr 2fr auto;
+        }
+
+        /* Formulário de criar conta: nome + e-mail + senha + botão */
+        .form-registro {
+            grid-template-columns: 1.5fr 2fr 1.5fr auto;
+        }
+
+        @media (max-width: 768px) {
+            .form-group,
+            .form-login,
+            .form-registro {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .login-status {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 12px;
+            font-size: 0.9rem;
+            color: #57606f;
+        }
+
+        input, select, button {
+            padding: 10px 15px;
+            border: 1px solid var(--gray);
+            border-radius: 6px;
+            font-size: 1rem;
+            outline: none;
+        }
+
+        input:focus, select:focus {
+            border-color: var(--primary);
+        }
+
+        button {
+            background-color: var(--primary);
+            color: white;
+            border: none;
+            cursor: pointer;
+            font-weight: bold;
+            white-space: nowrap;
+            transition: background 0.2s;
+        }
+
+        button:hover {
+            background-color: var(--primary-hover);
+        }
+
+        /* Botão em formato de link (alternar entre entrar e criar conta) */
+        button.link-btn {
+            background: none;
+            color: var(--primary);
+            padding: 0;
+            font-size: 0.9rem;
+            text-decoration: underline;
+        }
+
+        button.link-btn:hover {
+            background: none;
+            color: var(--primary-hover);
+        }
+
+        .troca-modo {
+            margin: 12px 0 0;
+            font-size: 0.9rem;
+            color: #57606f;
+        }
+
+        .filter-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+
+        .filter-bar select {
+            width: 250px;
+        }
+
+        .restaurants-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+            gap: 15px;
+        }
+
+        .restaurant-card {
+            background: var(--card-bg);
+            padding: 15px;
+            border-radius: 8px;
+            border-left: 5px solid var(--primary);
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+            position: relative;
+        }
+
+        .restaurant-card h3 {
+            margin: 0 0 8px 0;
+            font-size: 1.1rem;
+        }
+
+        .restaurant-card p {
+            margin: 4px 0;
+            color: #57606f;
+            font-size: 0.9rem;
+        }
+
+        .badge {
+            display: inline-block;
+            background: #dfe4ea;
+            padding: 3px 8px;
+            border-radius: 4px;
+            font-size: 0.8rem;
+            font-weight: bold;
+            color: #2f3542;
+        }
+
+        .rating {
+            color: #f39c12;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <header>
+            <h1>🍔 EasyFood</h1>
+            <p>Gerencie seus estabelecimentos favoritos de forma simples</p>
+        </header>
+
+        <!-- Conta: entrar / criar conta -->
+        <div class="card">
+            <h2 id="tituloConta">Entrar</h2>
+
+            <div id="blocoAcesso">
+                <form id="formConta" class="form-group form-login">
+                    <input type="text" id="contaNome" placeholder="Nome" autocomplete="name" hidden>
+                    <input type="email" id="contaEmail" placeholder="E-mail" autocomplete="email" required>
+                    <input type="password" id="contaSenha" placeholder="Senha" autocomplete="current-password" required>
+                    <button type="submit" id="btnConta">Entrar</button>
+                </form>
+
+                <p class="troca-modo">
+                    <span id="textoTroca">Ainda não tem conta?</span>
+                    <button type="button" id="btnTroca" class="link-btn">Criar conta</button>
+                </p>
+            </div>
+
+            <div class="login-status">
+                <span id="statusLogin"></span>
+                <button type="button" id="btnSair" style="display: none;">Sair</button>
+            </div>
+        </div>
+
+        <!-- Formulário de Cadastro -->
+        <div class="card">
+            <h2>Cadastrar Novo Estabelecimento</h2>
+            <form id="formCadastro" class="form-group">
+                <input type="text" id="name" placeholder="Nome do Restaurante" required>
+                <input type="text" id="category" placeholder="Categoria (ex: Pizza)" required>
+                <input type="number" id="rating" step="0.1" min="0" max="5" placeholder="Nota (0 a 5)" required>
+                <button type="submit">Cadastrar</button>
+            </form>
+        </div>
+
+        <!-- Listagem e Filtros -->
+        <div class="card">
+            <div class="filter-bar">
+                <h2>Restaurantes Cadastrados</h2>
+                <select id="filtroCategory" onchange="filtrarRestaurantes()">
+                    <option value="">Todas as categorias</option>
+                </select>
+            </div>
+            <div id="listaRestaurantes" class="restaurants-grid">
+                <!-- Os cards entram via JavaScript -->
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_URL = 'http://localhost:3000/restaurants';
+        const AUTH_URL = 'http://localhost:3000/auth';
+        let todosRestaurantes = [];
+        let modoConta = 'login'; // 'login' ou 'registro'
+
+        // ===== Autenticação =====
+        function atualizarStatusLogin() {
+            const nome = localStorage.getItem('userName');
+            const logado = !!localStorage.getItem('token');
+
+            document.getElementById('statusLogin').textContent =
+                logado ? `Logado como ${nome}` : 'Você não está logado.';
+            document.getElementById('btnSair').style.display =
+                logado ? 'inline-block' : 'none';
+
+            // Logado: esconde o formulário de entrar / criar conta
+            document.getElementById('blocoAcesso').style.display =
+                logado ? 'none' : 'block';
+            document.getElementById('tituloConta').style.display =
+                logado ? 'none' : 'block';
+        }
+
+        function limparSessao() {
+            localStorage.removeItem('token');
+            localStorage.removeItem('userName');
+            atualizarStatusLogin();
+        }
+
+        // Alterna o formulário entre "Entrar" e "Criar conta"
+        function definirModoConta(modo) {
+            modoConta = modo;
+            const registro = modo === 'registro';
+            const form = document.getElementById('formConta');
+
+            form.classList.toggle('form-login', !registro);
+            form.classList.toggle('form-registro', registro);
+
+            document.getElementById('contaNome').hidden = !registro;
+            document.getElementById('contaNome').required = registro;
+            document.getElementById('contaSenha').autocomplete =
+                registro ? 'new-password' : 'current-password';
+
+            document.getElementById('tituloConta').textContent = registro ? 'Criar conta' : 'Entrar';
+            document.getElementById('btnConta').textContent = registro ? 'Criar conta' : 'Entrar';
+            document.getElementById('textoTroca').textContent =
+                registro ? 'Já tem conta?' : 'Ainda não tem conta?';
+            document.getElementById('btnTroca').textContent = registro ? 'Entrar' : 'Criar conta';
+        }
+
+        document.getElementById('btnTroca').addEventListener('click', () => {
+            definirModoConta(modoConta === 'login' ? 'registro' : 'login');
+        });
+
+        // Faz o login e guarda o token; devolve true se deu certo
+        async function fazerLogin(email, password) {
+            const response = await fetch(`${AUTH_URL}/login`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email, password })
+            });
+
+            if (!response.ok) {
+                alert('E-mail ou senha inválidos.');
+                return false;
+            }
+
+            const data = await response.json();
+            localStorage.setItem('token', data.token);
+            localStorage.setItem('userName', data.user.name);
+            return true;
+        }
+
+        document.getElementById('formConta').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const name = document.getElementById('contaNome').value.trim();
+            const email = document.getElementById('contaEmail').value.trim();
+            const password = document.getElementById('contaSenha').value;
+
+            try {
+                if (modoConta === 'registro') {
+                    const cadastro = await fetch(`${AUTH_URL}/register`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ name, email, password })
+                    });
+
+                    if (cadastro.status === 409) {
+                        alert('Este e-mail já está cadastrado. Entre com ele ou use outro e-mail.');
+                        return;
+                    }
+                    if (!cadastro.ok) {
+                        alert('Não foi possível criar a conta. Confira nome, e-mail e senha.');
+                        return;
+                    }
+                }
+
+                // Depois de criar a conta, entra automaticamente
+                const entrou = await fazerLogin(email, password);
+                if (!entrou) return;
+
+                document.getElementById('formConta').reset();
+                definirModoConta('login');
+                atualizarStatusLogin();
+            } catch (error) {
+                console.error('Erro na autenticação:', error);
+                alert('Erro ao conectar com o servidor da API.');
+            }
+        });
+
+        document.getElementById('btnSair').addEventListener('click', limparSessao);
+
+        // 1. Buscar restaurantes ao carregar a página
+        async function carregarRestaurantes() {
+            try {
+                const response = await fetch(API_URL);
+                todosRestaurantes = await response.json();
+                exibirRestaurantes(todosRestaurantes);
+                atualizarFiltros(todosRestaurantes);
+            } catch (error) {
+                console.error("Erro ao carregar dados:", error);
+                alert("Erro ao conectar com o servidor da API.");
+            }
+        }
+
+        // 2. Renderizar os cards na tela
+        function exibirRestaurantes(lista) {
+            const container = document.getElementById('listaRestaurantes');
+            container.innerHTML = '';
+
+            if (lista.length === 0) {
+                container.innerHTML = '<p style="color: var(--gray);">Nenhum restaurante encontrado.</p>';
+                return;
+            }
+
+            lista.forEach(rest => {
+                const card = document.createElement('div');
+                card.className = 'restaurant-card';
+                card.innerHTML = `
+                    <h3>${rest.name}</h3>
+                    <p><span class="badge">${rest.category}</span></p>
+                    <p>Avaliação: <span class="rating">⭐ ${rest.rating}</span></p>
+                `;
+                container.appendChild(card);
+            });
+        }
+
+        // 3. Popular o select de categorias dinamicamente
+        function atualizarFiltros(lista) {
+            const select = document.getElementById('filtroCategory');
+            const categoriasUnicas = [...new Set(lista.map(r => r.category))];
+            
+            // Mantém a primeira opção e limpa o resto
+            select.innerHTML = '<option value="">Todas as categorias</option>';
+            
+            categoriasUnicas.forEach(cat => {
+                const option = document.createElement('option');
+                option.value = cat;
+                option.textContent = cat;
+                select.appendChild(option);
+            });
+        }
+
+        // 4. Filtrar por categoria selecionada
+        function filtrarRestaurantes() {
+            const categoriaSelecionada = document.getElementById('filtroCategory').value;
+            if (!categoriaSelecionada) {
+                exibirRestaurantes(todosRestaurantes);
+            } else {
+                const filtrados = todosRestaurantes.filter(r => r.category === categoriaSelecionada);
+                exibirRestaurantes(filtrados);
+            }
+        }
+
+        // 5. Enviar novo cadastro via POST
+        document.getElementById('formCadastro').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const novoRestaurante = {
+                name: document.getElementById('name').value,
+                category: document.getElementById('category').value,
+                rating: parseFloat(document.getElementById('rating').value)
+            };
+
+            try {
+                const response = await fetch(API_URL, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${localStorage.getItem('token')}`
+                    },
+                    body: JSON.stringify(novoRestaurante)
+                });
+
+                if (response.ok) {
+                    document.getElementById('formCadastro').reset();
+                    carregarRestaurantes(); // Recarrega a lista do banco
+                } else if (response.status === 401) {
+                    limparSessao(); // token ausente, inválido ou expirado
+                    alert("Faça login para cadastrar restaurantes.");
+                } else {
+                    alert("Erro ao cadastrar restaurante.");
+                }
+            } catch (error) {
+                console.error("Erro na requisição POST:", error);
+            }
+        });
+
+        // Executa ao abrir
+        atualizarStatusLogin();
+        carregarRestaurantes();
+    </script>
+</body>
+</html>

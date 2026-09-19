@@ -1,0 +1,7 @@
+# Arquivos de variáveis de ambiente e banco local
+.env
+*.db
+*.db-journal
+
+# Pastas de dependências
+node_modules/
