@@ -18,7 +18,7 @@ export async function postRestaurant(req, res) {
     }
 
     try {
-        const novoRestaurante = await createRestaurant(req.body);
+        const novoRestaurante = await createRestaurant(req.body, req.user);
         return res.status(201).json(novoRestaurante);
     } catch (error) {
         console.error("Erro ao cadastrar restaurante:", error.message);
