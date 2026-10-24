@@ -1,5 +1,6 @@
 import prisma from '../../lib/prisma.js';
 import { sendEmail, escapeHtml } from '../shared/email.service.js';
+import { removeImage } from '../shared/image.service.js';
 
 export async function findAllRestaurants() {
   return await prisma.restaurant.findMany();
@@ -9,11 +10,12 @@ export async function createRestaurant(data, user) {
   const { name, category, rating } = data;
 
   // 1. Operação principal
-  const restaurant = await prisma.restaurant.create({
+    const restaurant = await prisma.restaurant.create({
     data: {
       name,
       category,
-      rating: rating || 0
+      rating: rating || 0,
+      ownerId: Number(user.id)
     }
   });
 
@@ -56,4 +58,42 @@ export async function createRestaurant(data, user) {
 
   // 4. Retorno da operação principal
   return restaurant;
+}
+function httpError(statusCode, message) {
+  const error = new Error(message);
+  error.statusCode = statusCode;
+  return error;
+}
+
+export async function deleteRestaurant(restaurantId, userId) {
+  const id = Number(restaurantId);
+  if (!Number.isInteger(id) || id <= 0) {
+    throw httpError(400, 'Restaurante inválido');
+  }
+
+  const restaurant = await prisma.restaurant.findUnique({
+    where: { id },
+    include: { dishes: { select: { imageUrl: true } } }
+  });
+
+  if (!restaurant) {
+    throw httpError(404, 'Restaurante não encontrado');
+  }
+  if (restaurant.ownerId !== Number(userId)) {
+    throw httpError(403, 'Você não tem permissão para excluir este restaurante');
+  }
+
+  // 1. Operação principal: tudo ou nada
+  await prisma.$transaction([
+    prisma.dish.deleteMany({ where: { restaurantId: id } }),
+    prisma.restaurant.delete({ where: { id } })
+  ]);
+
+  // 2. Ação secundária: apagar as fotos. A função nunca lança erro,
+  //    então uma falha aqui não desfaz a exclusão já concluída.
+  await Promise.all(
+    restaurant.dishes
+      .filter((dish) => dish.imageUrl)
+      .map((dish) => removeImage(dish.imageUrl))
+  );
 }

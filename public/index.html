@@ -184,6 +184,143 @@
             color: #f39c12;
             font-weight: bold;
         }
+
+        .restaurants-grid {
+            align-items: start;
+        }
+
+        button:focus-visible,
+        input:focus-visible,
+        select:focus-visible {
+            outline: 2px solid var(--primary);
+            outline-offset: 2px;
+        }
+
+        button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        /* Botão secundário (contorno) para ações dentro dos cards */
+        button.secondary {
+            background: transparent;
+            color: var(--primary);
+            border: 1px solid var(--primary);
+        }
+
+        button.secondary:hover {
+            background: var(--primary);
+            color: #fff;
+        }
+
+        button.small {
+            padding: 6px 10px;
+            font-size: 0.85rem;
+        }
+
+        .badge.dono {
+            background: #ffe3e6;
+            color: var(--primary);
+        }
+
+        /* ===== Cardápio ===== */
+        .menu {
+            margin-top: 12px;
+            padding-top: 12px;
+            border-top: 1px solid var(--bg);
+        }
+
+        .menu[hidden] {
+            display: none;
+        }
+
+        .muted {
+            color: var(--gray);
+            font-size: 0.9rem;
+            margin: 6px 0;
+        }
+
+        .dish {
+            display: flex;
+            gap: 10px;
+            padding: 10px 0;
+            border-bottom: 1px solid var(--bg);
+        }
+
+        .dish-img {
+            flex: 0 0 72px;
+            width: 72px;
+            height: 72px;
+            border-radius: 8px;
+            object-fit: cover;
+            background: var(--bg);
+        }
+
+        .dish-img.vazio {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.6rem;
+        }
+
+        .dish-info {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            min-width: 0;
+        }
+
+        .dish-info p {
+            margin: 0;
+            font-size: 0.85rem;
+            overflow-wrap: anywhere;
+        }
+
+        .preco {
+            color: var(--primary);
+            font-weight: bold;
+            font-size: 0.95rem;
+        }
+
+        .dish-info .card-actions {
+            margin-top: 4px;
+        }
+
+        .dish-form {
+            display: grid;
+            gap: 8px;
+            margin-top: 14px;
+        }
+
+        .dish-form h4 {
+            margin: 0;
+            font-size: 0.95rem;
+            color: #57606f;
+        }
+
+        .dish-form input {
+            padding: 8px 10px;
+            font-size: 0.9rem;
+        }
+
+        .card-actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 8px;
+        }
+
+        /* Ação destrutiva: contorno vermelho-escuro, preenche ao passar o mouse */
+        button.danger {
+            background: transparent;
+            color: #c0392b;
+            border: 1px solid #c0392b;
+        }
+
+        button.danger:hover {
+            background: #c0392b;
+            color: #fff;
+        }
     </style>
 </head>
 <body>
@@ -244,10 +381,65 @@
     </div>
 
     <script>
-        const API_URL = 'http://localhost:3000/restaurants';
-        const AUTH_URL = 'http://localhost:3000/auth';
+        const BASE_URL = 'http://localhost:3000';
+        const API_URL = `${BASE_URL}/restaurants`;
+        const AUTH_URL = `${BASE_URL}/auth`;
+        const DISHES_URL = `${BASE_URL}/dishes`;
+
+        // true: o navegador avisa antes de enviar imagens acima de 5 MB.
+        // false: envia mesmo assim, para você ver a resposta 413 do servidor.
+        const VALIDAR_TAMANHO_NO_NAVEGADOR = true;
+        const LIMITE_IMAGEM_MB = 5;
+
         let todosRestaurantes = [];
         let modoConta = 'login'; // 'login' ou 'registro'
+
+        // ===== Utilitários =====
+
+        // Escapa texto vindo do banco antes de colocá-lo em innerHTML
+        function escapeHtml(valor = '') {
+            return String(valor)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
+        }
+
+        function authHeaders(extra = {}) {
+            return { ...extra, 'Authorization': `Bearer ${localStorage.getItem('token')}` };
+        }
+
+        function idDoUsuario() {
+            return Number(localStorage.getItem('userId')) || null;
+        }
+
+        function formatarPreco(valor) {
+            return Number(valor).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+        }
+
+        // Lê a resposta de uma rota protegida. Em caso de erro, lança a
+        // mensagem enviada pela API (campo "error").
+        async function lerResposta(response) {
+            let data = null;
+            try { data = await response.json(); } catch { /* resposta sem corpo */ }
+
+            if (response.status === 401) {
+                limparSessao();
+                throw new Error('Sua sessão expirou. Entre novamente.');
+            }
+            if (!response.ok) {
+                throw new Error(data?.error || 'Erro inesperado. Tente novamente.');
+            }
+            return data;
+        }
+
+        function mostrarErro(error) {
+            console.error(error);
+            alert(error instanceof TypeError
+                ? 'Erro ao conectar com o servidor da API.'
+                : error.message);
+        }
 
         // ===== Autenticação =====
         function atualizarStatusLogin() {
@@ -269,7 +461,23 @@
         function limparSessao() {
             localStorage.removeItem('token');
             localStorage.removeItem('userName');
+            localStorage.removeItem('userId');
             atualizarStatusLogin();
+            renderizarLista(); // some com os botões de dono
+        }
+
+        // Quem entrou antes desta versão não tem o id guardado: busca em /auth/me
+        async function garantirUserId() {
+            if (!localStorage.getItem('token') || idDoUsuario()) return;
+            try {
+                const response = await fetch(`${AUTH_URL}/me`, { headers: authHeaders() });
+                if (response.status === 401) return limparSessao();
+                if (!response.ok) return;
+                const data = await response.json();
+                localStorage.setItem('userId', data.user.id);
+            } catch (error) {
+                console.error('Erro ao identificar o usuário:', error);
+            }
         }
 
         // Alterna o formulário entre "Entrar" e "Criar conta"
@@ -313,6 +521,7 @@
             const data = await response.json();
             localStorage.setItem('token', data.token);
             localStorage.setItem('userName', data.user.name);
+            localStorage.setItem('userId', data.user.id);
             return true;
         }
 
@@ -348,6 +557,7 @@
                 document.getElementById('formConta').reset();
                 definirModoConta('login');
                 atualizarStatusLogin();
+                renderizarLista(); // mostra os botões de dono
             } catch (error) {
                 console.error('Erro na autenticação:', error);
                 alert('Erro ao conectar com o servidor da API.');
@@ -355,6 +565,8 @@
         });
 
         document.getElementById('btnSair').addEventListener('click', limparSessao);
+
+        // ===== Restaurantes =====
 
         // 1. Buscar restaurantes ao carregar a página
         async function carregarRestaurantes() {
@@ -379,13 +591,28 @@
                 return;
             }
 
+            const userId = idDoUsuario();
+
             lista.forEach(rest => {
+                // Só para exibir os botões. Quem decide a permissão é o servidor.
+                const souDono = !!userId && rest.ownerId === userId;
+
                 const card = document.createElement('div');
                 card.className = 'restaurant-card';
+                card.dataset.id = rest.id;
+                card.dataset.dono = souDono ? '1' : '0';
                 card.innerHTML = `
-                    <h3>${rest.name}</h3>
-                    <p><span class="badge">${rest.category}</span></p>
-                    <p>Avaliação: <span class="rating">⭐ ${rest.rating}</span></p>
+                    <h3>${escapeHtml(rest.name)}</h3>
+                    <p>
+                        <span class="badge">${escapeHtml(rest.category)}</span>
+                        ${souDono ? '<span class="badge dono">Seu restaurante</span>' : ''}
+                    </p>
+                    <p>Avaliação: <span class="rating">⭐ ${escapeHtml(rest.rating ?? '-')}</span></p>
+                    <div class="card-actions">
+                        <button type="button" class="secondary small" data-acao="cardapio">Ver cardápio</button>
+                        ${souDono ? '<button type="button" class="danger small" data-acao="excluir">Excluir restaurante</button>' : ''}
+                    </div>
+                    <div class="menu" hidden></div>
                 `;
                 container.appendChild(card);
             });
@@ -395,10 +622,10 @@
         function atualizarFiltros(lista) {
             const select = document.getElementById('filtroCategory');
             const categoriasUnicas = [...new Set(lista.map(r => r.category))];
-            
+
             // Mantém a primeira opção e limpa o resto
             select.innerHTML = '<option value="">Todas as categorias</option>';
-            
+
             categoriasUnicas.forEach(cat => {
                 const option = document.createElement('option');
                 option.value = cat;
@@ -408,14 +635,17 @@
         }
 
         // 4. Filtrar por categoria selecionada
-        function filtrarRestaurantes() {
+        function renderizarLista() {
             const categoriaSelecionada = document.getElementById('filtroCategory').value;
-            if (!categoriaSelecionada) {
-                exibirRestaurantes(todosRestaurantes);
-            } else {
-                const filtrados = todosRestaurantes.filter(r => r.category === categoriaSelecionada);
-                exibirRestaurantes(filtrados);
-            }
+            exibirRestaurantes(
+                categoriaSelecionada
+                    ? todosRestaurantes.filter(r => r.category === categoriaSelecionada)
+                    : todosRestaurantes
+            );
+        }
+
+        function filtrarRestaurantes() {
+            renderizarLista();
         }
 
         // 5. Enviar novo cadastro via POST
@@ -431,10 +661,7 @@
             try {
                 const response = await fetch(API_URL, {
                     method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${localStorage.getItem('token')}`
-                    },
+                    headers: authHeaders({ 'Content-Type': 'application/json' }),
                     body: JSON.stringify(novoRestaurante)
                 });
 
@@ -452,9 +679,212 @@
             }
         });
 
+        // ===== Cardápio =====
+
+        function pratoHtml(prato, souDono) {
+            const imagem = prato.imageUrl
+                ? `<img class="dish-img" src="${BASE_URL}${escapeHtml(prato.imageUrl)}"
+                        alt="Foto de ${escapeHtml(prato.name)}" loading="lazy">`
+                : '<div class="dish-img vazio" aria-hidden="true">🍽️</div>';
+
+            const acoes = souDono ? `
+                <div class="card-actions">
+                    <button type="button" class="secondary small" data-acao="foto">
+                        ${prato.imageUrl ? 'Trocar foto' : 'Enviar foto'}
+                    </button>
+                    <button type="button" class="danger small" data-acao="excluir-prato"
+                            data-prato="${prato.id}">Excluir prato</button>
+                </div>
+                <input type="file" accept="image/jpeg,image/png,image/webp"
+                       data-acao="arquivo" data-prato="${prato.id}" hidden>
+            ` : '';
+
+            return `
+                <div class="dish">
+                    ${imagem}
+                    <div class="dish-info">
+                        <strong>${escapeHtml(prato.name)}</strong>
+                        <span class="preco">${formatarPreco(prato.price)}</span>
+                        <p>${escapeHtml(prato.description)}</p>
+                        ${acoes}
+                    </div>
+                </div>
+            `;
+        }
+
+        function formularioPratoHtml() {
+            return `
+                <form class="dish-form">
+                    <h4>Adicionar prato</h4>
+                    <input type="text" name="name" placeholder="Nome do prato" maxlength="100" required>
+                    <input type="text" name="description" placeholder="Descrição" maxlength="500" required>
+                    <input type="number" name="price" step="0.01" min="0.01" placeholder="Preço (R$)" required>
+                    <button type="submit">Adicionar prato</button>
+                </form>
+            `;
+        }
+
+        async function carregarCardapio(card) {
+            const menu = card.querySelector('.menu');
+            const souDono = card.dataset.dono === '1';
+
+            menu.innerHTML = '<p class="muted">Carregando cardápio...</p>';
+
+            try {
+                const response = await fetch(`${API_URL}/${card.dataset.id}/dishes`);
+                if (!response.ok) throw new Error('falha ao carregar');
+                const pratos = await response.json();
+
+                const lista = pratos.length
+                    ? pratos.map(p => pratoHtml(p, souDono)).join('')
+                    : '<p class="muted">Este restaurante ainda não tem pratos.</p>';
+
+                menu.innerHTML = lista + (souDono ? formularioPratoHtml() : '');
+            } catch (error) {
+                console.error('Erro ao carregar cardápio:', error);
+                menu.innerHTML = '<p class="muted">Não foi possível carregar o cardápio.</p>';
+            }
+        }
+
+        async function criarPrato(form) {
+            const card = form.closest('.restaurant-card');
+            const dados = new FormData(form);
+            const botao = form.querySelector('button[type="submit"]');
+
+            botao.disabled = true;
+            try {
+                const response = await fetch(`${API_URL}/${card.dataset.id}/dishes`, {
+                    method: 'POST',
+                    headers: authHeaders({ 'Content-Type': 'application/json' }),
+                    body: JSON.stringify({
+                        name: dados.get('name').trim(),
+                        description: dados.get('description').trim(),
+                        price: parseFloat(dados.get('price'))
+                    })
+                });
+                await lerResposta(response);
+                await carregarCardapio(card);
+            } catch (error) {
+                mostrarErro(error);
+                botao.disabled = false;
+            }
+        }
+
+        async function enviarImagem(input) {
+            const arquivo = input.files[0];
+            if (!arquivo) return;
+
+            const card = input.closest('.restaurant-card');
+
+            if (VALIDAR_TAMANHO_NO_NAVEGADOR && arquivo.size > LIMITE_IMAGEM_MB * 1024 * 1024) {
+                alert(`A imagem deve ter no máximo ${LIMITE_IMAGEM_MB} MB.`);
+                input.value = '';
+                return;
+            }
+
+            // Não definimos Content-Type: o navegador monta o multipart sozinho
+            const dados = new FormData();
+            dados.append('image', arquivo);
+
+            try {
+                const response = await fetch(`${DISHES_URL}/${input.dataset.prato}/image`, {
+                    method: 'POST',
+                    headers: authHeaders(),
+                    body: dados
+                });
+                await lerResposta(response);
+                await carregarCardapio(card);
+            } catch (error) {
+                input.value = '';
+                mostrarErro(error);
+            }
+        }
+
+        async function excluirPrato(botao, card) {
+            const nome = botao.closest('.dish').querySelector('strong').textContent;
+            if (!confirm(`Excluir o prato "${nome}"?\n\nO prato e a foto serão apagados. Esta ação não pode ser desfeita.`)) return;
+
+            try {
+                const response = await fetch(`${DISHES_URL}/${botao.dataset.prato}`, {
+                    method: 'DELETE',
+                    headers: authHeaders()
+                });
+                await lerResposta(response);
+                await carregarCardapio(card); // recarrega só o cardápio deste restaurante
+            } catch (error) {
+                mostrarErro(error);
+            }
+        }
+
+        async function excluirRestaurante(card) {
+            const nome = card.querySelector('h3').textContent;
+            const confirmou = confirm(
+                `Excluir "${nome}"?\n\nO restaurante, todos os pratos e as fotos serão apagados. Esta ação não pode ser desfeita.`
+            );
+            if (!confirmou) return;
+
+            try {
+                const response = await fetch(`${API_URL}/${card.dataset.id}`, {
+                    method: 'DELETE',
+                    headers: authHeaders()
+                });
+                await lerResposta(response);
+                await carregarRestaurantes(); // recarrega a lista do banco
+            } catch (error) {
+                mostrarErro(error);
+            }
+        }
+
+        // Um único conjunto de ouvintes para todos os cards (delegação de eventos)
+        const listaEl = document.getElementById('listaRestaurantes');
+
+        listaEl.addEventListener('click', async (e) => {
+            const botao = e.target.closest('button[data-acao]');
+            if (!botao) return;
+            const card = botao.closest('.restaurant-card');
+
+            if (botao.dataset.acao === 'cardapio') {
+                const menu = card.querySelector('.menu');
+                if (!menu.hidden) {
+                    menu.hidden = true;
+                    botao.textContent = 'Ver cardápio';
+                    return;
+                }
+                menu.hidden = false;
+                botao.textContent = 'Ocultar cardápio';
+                await carregarCardapio(card);
+            }
+
+            if (botao.dataset.acao === 'excluir') {
+                await excluirRestaurante(card);
+            }
+
+            if (botao.dataset.acao === 'excluir-prato') {
+                await excluirPrato(botao, card);
+            }
+
+            if (botao.dataset.acao === 'foto') {
+                botao.closest('.dish').querySelector('input[type="file"]').click();
+            }
+        });
+
+        listaEl.addEventListener('change', (e) => {
+            if (e.target.matches('input[data-acao="arquivo"]')) enviarImagem(e.target);
+        });
+
+        listaEl.addEventListener('submit', (e) => {
+            if (e.target.matches('.dish-form')) {
+                e.preventDefault();
+                criarPrato(e.target);
+            }
+        });
+
         // Executa ao abrir
-        atualizarStatusLogin();
-        carregarRestaurantes();
+        (async () => {
+            atualizarStatusLogin();
+            await garantirUserId();
+            await carregarRestaurantes();
+        })();
     </script>
 </body>
 </html>

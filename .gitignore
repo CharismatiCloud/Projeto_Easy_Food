@@ -5,3 +5,7 @@
 
 # Pastas de dependências
 node_modules/
+
+# Imagens enviadas pelos usuarios e backups locais
+uploads/
+*.backup
