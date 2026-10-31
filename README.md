@@ -39,11 +39,14 @@ Copy-Item .env.example .env
 npx prisma migrate dev
 
 # 5. (Opcional) Popule o banco com restaurantes de exemplo
+#    Só insere se o banco ainda não tiver nenhum restaurante
 npx prisma db seed
 
 # 6. Inicie o servidor
 npm start
 ```
+
+> **Sobre os restaurantes de exemplo:** eles não têm dono. Aparecem na lista e o cardápio deles pode ser consultado, mas ninguém pode alterá-los. Para testar o gerenciamento do cardápio, crie uma conta, entre e cadastre o seu próprio restaurante.
 
 Depois, acesse **http://localhost:3000** no navegador.
 
@@ -388,7 +391,7 @@ As decisões técnicas do projeto estão documentadas em `docs/adr/`:
 | `npm start` | Inicia o servidor |
 | `npm run dev` | Inicia com reinício automático (`node --watch`) |
 | `npx prisma migrate dev` | Aplica as migrations e atualiza o banco |
-| `npx prisma db seed` | Insere restaurantes de exemplo |
+| `npx prisma db seed` | Insere restaurantes de exemplo (só se o banco não tiver nenhum) |
 | `npx prisma studio` | Abre uma interface para consultar o banco |
 
 ## Problemas comuns

@@ -12,7 +12,10 @@
   "keywords": [],
   "author": "",
   "license": "ISC",
-  "type": "module",
+    "type": "module",
+  "prisma": {
+    "seed": "node prisma/seed.js"
+  },
   "dependencies": {
     "@prisma/client": "^5.22.0",
     "bcrypt": "^6.0.0",
